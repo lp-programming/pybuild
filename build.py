@@ -281,7 +281,10 @@ def main(argv = sys.argv):
 
     target.prefix = args.prefix
 
-    target.build = args.build
+    if target.build == args.build:
+        target.build = target.build / mode
+    else:
+        target.build = args.build
     
     target.project = pathlib.Path(args.project)
 

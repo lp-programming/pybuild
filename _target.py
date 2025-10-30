@@ -24,7 +24,7 @@ class target(dict):
         "-c"
     ]
 
-    build = pathlib.Path("build/")
+    build = pathlib.Path("build")
     prefix = pathlib.Path("/usr/local/")
 
     module_lines = [
