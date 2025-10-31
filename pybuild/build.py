@@ -130,7 +130,10 @@ class Target:
         cls.__used[tname] = t
         return t
     def __init__(self, tname):
-        self.__target = targets[tname]
+        t = targets[tname]
+        if not isinstance(t, target):
+            t = target(t)
+        self.__target = t
         self.name = tname
     def __str__(self):
         return f"<Target: {self.name}, {self.state}>"

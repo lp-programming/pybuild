@@ -1,0 +1,147 @@
+* PyBuild
+This project is a simple compiler driver for C++ (or similar) projects, with first class support for clang++ modules,
+including module headers, implicit modules, and implicit module maps. It is mostly used with clang and libcxx (since
+that is the closest we have on Linux to /import std;/ just working out of the box), though g++, roslyn, or any compiler
+with a command line interface works too. It even works with java's compiler.
+
+It's an executable python module. Get it somewhere on your python path, then invoke it via /python3 -m pybuild/ . A
+bash alias or shell script wrapper simplifies this to just /pybuild/.
+
+** Limitations of Scope
+This is *not* a substitute for autoconf, automake, autotools, or any other auto* system. It can check /pkgconf/ to see
+if a library is installed, or verify /ld -l/ can find and link a library, but if you need to dynamically fall back to
+support some ancient compiler, libc, kernel, or coreutils version, this isn't the right tool for the job.
+
+Nor is it a replacement for something like cmake, qmake, meson, or similar tools. It assumes you've set up your
+environment correctly in advance, so does very little sanity checking. It's closest to a gnu makefile, and aims for
+little beyond that.
+
+** Basic Usage
+*** Defining Projects
+There are some examples in the examples directory.  Basically, pybuild looks for an importable module /targets/ and
+expects to import it, then load /targets.targets/ and build the selected targets. Like gnu make, it defaults to /all/ if
+no target is specified. This means you can effectively define your entire project structure in json, if it's
+sufficiently simple. For more complex projects, you can use any python code to build the targets /dict/. There is a
+subclass of /dict/ that gets used internally: /pybuild.target/, which also controls several top level build options. You
+can import and modify it from /targets/.
+
+
+*** Hello
+This is a simple hello world style project. It doesn't even invoke the compiler, just runs some simple commands.
+For the simplest of projects, this is sufficient.
+#+begin_src python :tangle examples/hello/targets.py
+
+targets = {
+    "all": {
+        "doc": "hello world",
+        "deps": ["hello", "world"],
+        "targets": ["hola"],
+        "virtual": True
+    },
+    "hello": {
+        "virtual": True,
+        "doc": "I say hello",
+        "cmd": ["echo", "hello"]
+    },
+    "world": {
+        "virtual": True,
+        "doc": "I say world",
+        "deps": ["hello"],
+        "cmd": ["echo", "world"],
+    },
+    "hola": {
+        "virtual": True,
+        "doc": "I say hello differently",
+        "function": (lambda _: print("hola") or True)
+    }
+}
+
+#+end_src
+
+
+*** Modules
+This is a simple module example. It assumes you have clang++ and libcxx available, but nothing further. It uses a couple
+helpers from pybuild to track source code files automatically.
+#+begin_src python :tangle examples/modules/targets.py
+
+from pybuild import target, cpp, cppm, find_cppms, system_headers, write_module_map
+
+target.module_maps[0] = target.build / "modules.map"
+
+target.common_args = [
+    "clang++",
+    "-D_LIBCPP_DISABLE_DEPRECATION_WARNINGS=true",
+    "-march=native",
+    "-std=c++26",
+    "-stdlib=libc++",
+    "-fPIC",
+    "-fimplicit-modules",
+    "-fbuiltin-module-map",
+    "-fimplicit-module-maps",
+    "-fmodule-map-file=/usr/include/c++/v1/module.modulemap",
+    ,*[f"-fmodule-map-file={i}" for i in target.module_maps],
+    f"-fmodules-cache-path={target.build}/modules",
+    "-flto",
+    "-Wold-style-cast",
+    "-Wall",
+    "-Wextra",
+    "-Wfloat-conversion",
+    "-Wsign-conversion",
+    "-Wsign-compare",
+    "-Wpedantic",
+]
+
+
+
+targets = find_cppms(__file__) | {
+    "all": target({
+        "doc": "hello modules",
+        "deps": ["modulemap", "bin/hello"],
+        "virtual": True
+    }),
+    "bin/hello": cpp(
+        doc="Hello from clang++",
+        path="hello.cpp",
+        out="bin/hello",
+        deps=["modulemap"]
+    ),
+    "setup": target({
+        "doc": "A virtual target that runs every time before any other targets",
+        "deps": ["modulemap"],
+        "virtual": True
+    }),
+    "modulemap": target({
+        "doc": "Rebuild the module map for the local system",
+        "hash": str.join(" ", sorted(system_headers)),
+        "function": write_module_map        
+    }),
+}
+
+#+end_src
+
+#+begin_src c++ :tangle examples/modules/hello.cpp
+
+import Greeter;
+
+int main() {
+  Greeter greeter{};
+  greeter.hello();
+}
+
+#+end_src
+
+#+begin_src c++ :tangle examples/modules/Greeter.cppm
+module;
+export module Greeter;
+import <print>;
+
+export struct Greeter {
+  void hello() {
+    std::println("hello world");
+  }
+};
+
+#+end_src
+
+
+

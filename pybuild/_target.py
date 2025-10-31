@@ -1,5 +1,7 @@
 import pathlib
+import colorama
 import subprocess
+
 class glob:
     def __init__(self, p, g):
         self.path = p
@@ -228,6 +230,7 @@ def find_cppms(*pths: [str | pathlib.Path]) -> None:
             for f in files:
                 if f.endswith('.cppm'):
                     cppm(tp/f)
+    return cppms
 
 
 def check(hdr, system=True):
@@ -279,5 +282,18 @@ def create_module_file(system = True):
     return str.join('\n', lines)
             
         
+def write_module_map(_):
+    mm = create_module_file(True)
+    if (target.module_maps[0]).exists():
+        with open(target.module_maps[0], 'r') as f:
+            if f.read().strip() == mm.strip():
+                return True
+    with open(str(target.module_maps[0]), 'w') as f:
+        print(mm, file=f)
+    print(colorama.Fore.RED,
+          colorama.Back.BLACK,
+          "modules.map rebuilt. You probably need to run clean.",
+          colorama.Style.RESET_ALL)
+    return True
 
                     
