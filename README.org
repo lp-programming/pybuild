@@ -1,29 +1,31 @@
 * PyBuild
 This project is a simple compiler driver for C++ (or similar) projects, with first class support for clang++ modules,
 including module headers, implicit modules, and implicit module maps. It is mostly used with clang and libcxx (since
-that is the closest we have on Linux to /import std;/ just working out of the box), though g++, roslyn, or any compiler
-with a command line interface works too. It even works with java's compiler.
+that is the closest we have on Linux to ~import std;~ just working out of the box), though g++, roslyn, or any
+compiler with a command line interface works too. It even works with java's compiler.
 
-It's an executable python module. Get it somewhere on your python path, then invoke it via /python3 -m pybuild/ . A
-bash alias or shell script wrapper simplifies this to just /pybuild/.
+It's an executable python module. Get it somewhere on your python path, then invoke it via
+~python3 -m pybuild/~. A bash alias or shell script wrapper simplifies this to just ~pybuild~.
 
 ** Limitations of Scope
-This is *not* a substitute for autoconf, automake, autotools, or any other auto* system. It can check /pkgconf/ to see
-if a library is installed, or verify /ld -l/ can find and link a library, but if you need to dynamically fall back to
-support some ancient compiler, libc, kernel, or coreutils version, this isn't the right tool for the job.
+This is *not* a substitute for ~autoconf~, ~automake~, ~autotools~, or any other auto*
+system. It can check ~pkgconf~ to see if a library is installed, or verify ~ld -l~ can find and
+link a library, but if you need to dynamically fall back to support some ancient compiler, libc, kernel, or coreutils
+version, this isn't the right tool for the job.
 
-Nor is it a replacement for something like cmake, qmake, meson, or similar tools. It assumes you've set up your
-environment correctly in advance, so does very little sanity checking. It's closest to a gnu makefile, and aims for
-little beyond that.
+Nor is it a replacement for something like ~cmake~, ~qmake~, ~meson~, or similar tools.
+It assumes you've set up your environment correctly in advance, so does very little sanity checking. It's closest to a
+gnu makefile, and aims for little beyond that.
 
 ** Basic Usage
 *** Defining Projects
-There are some examples in the examples directory.  Basically, pybuild looks for an importable module /targets/ and
-expects to import it, then load /targets.targets/ and build the selected targets. Like gnu make, it defaults to /all/ if
-no target is specified. This means you can effectively define your entire project structure in json, if it's
-sufficiently simple. For more complex projects, you can use any python code to build the targets /dict/. There is a
-subclass of /dict/ that gets used internally: /pybuild.target/, which also controls several top level build options. You
-can import and modify it from /targets/.
+There are some examples in the examples directory.  Basically, ~pybuild~ looks for an importable module
+~targets~ and expects to import it, then load ~targets.targets~ and build the selected targets.
+Like gnu make, it defaults to /"all"/ if no target is specified. This means you can effectively define your entire
+project structure in json, if it's sufficiently simple. For more complex projects, you can use any python code to build
+the targets ~dict~. There is a subclass of ~dict~ that gets used internally:
+~pybuild.target~, which also controls several top level build options. You can import and modify it from
+your ~targets.py~.
 
 
 *** Hello
@@ -60,8 +62,8 @@ targets = {
 
 
 *** Modules
-This is a simple module example. It assumes you have clang++ and libcxx available, but nothing further. It uses a couple
-helpers from pybuild to track source code files automatically.
+This is a simple module example. It assumes you have ~clang++~ and ~libcxx~ available, but nothing
+further. It uses a couple helpers from pybuild to track source code files automatically.
 #+begin_src python :tangle examples/modules/targets.py
 
 from pybuild import target, cpp, cppm, find_cppms, system_headers, write_module_map
@@ -119,6 +121,8 @@ targets = find_cppms(__file__) | {
 
 #+end_src
 
+The main C++ file, which uses ~.cpp~ as the file extension, just imports a simple module.
+
 #+begin_src c++ :tangle examples/modules/hello.cpp
 
 import Greeter;
@@ -129,6 +133,9 @@ int main() {
 }
 
 #+end_src
+The module itself uses ~.cppm~ as the extension. I've found clang is most reliable if the module name matches
+the file name, but pybuild is smart enough to figure it out, usually. I've had some success with partial modules, but
+compile times are much faster using flat modules as they parallel out better.
 
 #+begin_src c++ :tangle examples/modules/Greeter.cppm
 module;
