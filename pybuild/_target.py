@@ -1,5 +1,14 @@
 import pathlib
-import colorama
+try:
+    import colorama
+except:
+    class colorama:
+        class Fore:
+            RED='\x1b[31m'
+        class Back:
+            BLACK = '\x1b[40m'
+        class Style:
+            RESET_ALL = '\x1b[0m'
 import subprocess
 
 class glob:
@@ -284,7 +293,7 @@ def create_module_file(system = True):
         
 def write_module_map(_):
     mm = create_module_file(True)
-    if (target.module_maps[0]).exists():
+    if pathlib.Path(target.module_maps[0]).exists():
         with open(target.module_maps[0], 'r') as f:
             if f.read().strip() == mm.strip():
                 return True
