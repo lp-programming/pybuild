@@ -122,6 +122,8 @@ class target(dict):
 
 cppms = {}
 
+stubs = {}
+
 system_headers = set()
 local_headers = set()
 
@@ -169,15 +171,22 @@ class cppm(target):
         self.out = str(pcm)
 
         self.name = module_name
-        cppms[module_name] = self
-
-        cppms[str(pcm)] = self.pcm = target(
+        self.pcm = target(
             name=module_name,
             source=[str(pth)],
             deps=deps,
             out=str(pcm),
             args=[*self.precompile_args, "-o", str(pcm), str(pth), func(self.get_dep_args)]
         )
+
+        if "stub" in str(pth).lower():
+            stubs[module_name] = {
+                module_name: self,
+                str(pcm): self.pcm
+            }
+        else:
+            cppms[module_name] = self
+            cppms[str(pcm)] = self.pcm
 
     def setup(self):
         if not self.pcm_dir.exists():
@@ -297,12 +306,13 @@ def write_module_map(_):
         with open(target.module_maps[0], 'r') as f:
             if f.read().strip() == mm.strip():
                 return True
+            print(colorama.Fore.RED,
+                  colorama.Back.BLACK,
+                  "modules.map changed. You probably need to run clean.",
+                  colorama.Style.RESET_ALL)
+
     with open(str(target.module_maps[0]), 'w') as f:
         print(mm, file=f)
-    print(colorama.Fore.RED,
-          colorama.Back.BLACK,
-          "modules.map rebuilt. You probably need to run clean.",
-          colorama.Style.RESET_ALL)
     return True
 
                     
