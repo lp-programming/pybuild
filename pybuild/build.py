@@ -64,7 +64,6 @@ class Task:
     def markCompleted(cls):
         cls.building -= 1
         cls.totalBuilt += 1
-        Target.syncState()
         json_status = json.dumps(meta_status)
         with STATUS_FILE.open("w", encoding="utf-8") as f:
             print(json_status, file=f)
@@ -93,6 +92,7 @@ class Task:
                 Task.globalState = State.failure
             else:
                 self.state = State.rebuilt
+                status[self.target.name] = self.sha
         else:
             if stop:
                 self.proc.send_signal(stop)
@@ -110,6 +110,7 @@ class Task:
         if self.state is not State.default:
             print("Trying to start already started task", self)
             return False
+        self.sha = self.target.sha
         self.markStarted()
         self.state = State.pending
         if self.target.function:
@@ -139,13 +140,6 @@ class Target:
     state = State.default
     task = None
     mode = "debug"
-    @classmethod
-    def syncState(cls):
-        for k,v in cls.__used.items():
-            if v.state is State.rebuilt:
-                status[k] = v.sha
-            if v.state is State.failure:
-                status[k] = None
     @staticmethod
     def __new__(cls, tname):
         t = cls.__used.get(tname, None)
@@ -234,7 +228,7 @@ class Target:
         
         for r in self.__target.requirements:
             if not r():
-                print("Not building",self,"due to missing dep")
+                print("Not building", self, "due to missing dep")
                 self.state = State.missing
                 return self
         if self.__target.virtual:
@@ -373,8 +367,6 @@ def main(argv = sys.argv):
     for b in building:
         b.wait()
         ec |= b.poll()
-
-    Target.syncState()
 
     json_status = json.dumps(meta_status)
     with STATUS_FILE.open("w", encoding="utf-8") as f:
