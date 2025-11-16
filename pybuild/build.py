@@ -8,7 +8,7 @@ import time
 import enum
 import argparse
 import signal
-
+verbose = False
 stop = False
 def SignalStop(num, frame):
     if num == signal.SIGUSR2:
@@ -222,7 +222,8 @@ class Target:
         if self.state is not State.default:
             return self
         self.mode = mode
-        print("prebuild:", self)
+        if verbose:
+            print("prebuild:", self)
         if su := getattr(self.__target, "setup", None):
             su()
         
@@ -265,6 +266,7 @@ class Target:
         
 def main(argv = sys.argv):
     global targets
+    global verbose
     if "-j" in argv:
         jidx = argv.index('-j')
         if jidx < len(argv) - 1:
@@ -294,7 +296,7 @@ def main(argv = sys.argv):
     parser.add_argument("--jobserver-auth", help=argparse.SUPPRESS)
 
     args, rest = parser.parse_known_intermixed_args(argv[1:])
-    
+    verbose = args.verbose
     mode = args.mode
 
     project = args.project
