@@ -5,6 +5,7 @@ except:
     class colorama:
         class Fore:
             RED='\x1b[31m'
+            YELLOW='\x1b[33m'
         class Back:
             BLACK = '\x1b[40m'
         class Style:
