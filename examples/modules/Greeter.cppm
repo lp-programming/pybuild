@@ -1,4 +1,3 @@
-module;
 export module Greeter;
 import <print>;
 
