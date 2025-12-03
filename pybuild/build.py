@@ -56,17 +56,15 @@ class Task:
     limit = 1
     state = State.default
     globalState = State.default
-    @classmethod
-    def markStarted(cls):
-        cls.building += 1
-        cls.maxParallel = max(cls.building, cls.maxParallel)
-    @classmethod
-    def markCompleted(cls):
-        cls.building -= 1
-        cls.totalBuilt += 1
-        json_status = json.dumps(meta_status)
-        with STATUS_FILE.open("w", encoding="utf-8") as f:
-            print(json_status, file=f)
+    running = []
+    def markStarted(self):
+        Task.building += 1
+        Task.maxParallel = max(self.building, self.maxParallel)
+        self.running.append(self)
+    def markCompleted(self):
+        Task.building -= 1
+        Task.totalBuilt += 1
+        self.running.remove(self)
 
     def __init__(self, t):
         self.proc = None
@@ -83,16 +81,18 @@ class Task:
                 return None
         r = self.proc.poll()
         if r is not None:
-            if self.state is State.pending:
-                self.markCompleted()
+            old_state = self.state
             if r:
                 print("Failure running",self)
                 print(str.join(' ', [repr(i) for i in self.args]))
                 self.state = State.failure
                 Task.globalState = State.failure
+                status[self.target.name] = None
             else:
                 self.state = State.rebuilt
-                status[self.target.name] = self.sha
+                status[self.target.name] = self.target.finish_hash(self.source_sha)
+            if old_state is State.pending:
+                self.markCompleted()
         else:
             if stop:
                 self.proc.send_signal(stop)
@@ -110,7 +110,7 @@ class Task:
         if self.state is not State.default:
             print("Trying to start already started task", self)
             return False
-        self.sha = self.target.sha
+        self.source_sha = self.target.source_hash
         self.markStarted()
         self.state = State.pending
         if self.target.function:
@@ -134,6 +134,10 @@ class Task:
     def __repr__(self):
         return f"<Task: {self.target}>"
     __str__=__repr__
+    def __del__(self):
+        if self.proc:
+            if self.proc.poll() is None:
+                print("cleanup with still running process")
     
 class Target:
     __used = {}
@@ -164,8 +168,29 @@ class Target:
     def sha(self):
         if self.__target.virtual:
             return None
+        sh = self.source_hash
+        return self.finish_hash(sh)
+    def finish_hash(self, sh):
+        th = self.target_hash
+        if sh is None:
+            return th
+        if th is None:
+            return sh
+        return hashlib.sha256((self.source_hash + self.target_hash).encode('utf-8')).hexdigest()
+    @property
+    def target_hash(self):
+        if self.__target.virtual:
+            return None
+        p = pathlib.Path(self.name)
+        if p.exists():
+            with p.open('rb') as f:
+                return hashlib.sha256(f.read()).hexdigest()
+    @property
+    def source_hash(self):
+        if self.__target.virtual:
+            return None
         sha = b""
-        source = [pathlib.Path(i) for i in [self.name, *self.__target.source]]
+        source = [pathlib.Path(i) for i in [*self.__target.source]]
         for s in source:
             if s.exists():
                 with s.open("rb") as f:
@@ -370,12 +395,20 @@ def main(argv = sys.argv):
         b.wait()
         ec |= b.poll()
 
+    for t in Task.running:
+        if t.proc:
+            t.wait()
+
     json_status = json.dumps(meta_status)
     with STATUS_FILE.open("w", encoding="utf-8") as f:
         print(json_status, file=f)
 
     print(f"done building {Task.totalBuilt} jobs, using max", Task.maxParallel, "workers")
-        
+
+    json_status = json.dumps(meta_status)
+    with STATUS_FILE.open("w", encoding="utf-8") as f:
+        print(json_status, file=f)
+
     return ec
 
         
