@@ -1,4 +1,5 @@
 import pathlib
+import os
 try:
     import colorama
 except:
@@ -253,7 +254,7 @@ def find_cppms(*pths: [str | pathlib.Path]) -> None:
 
 
 def check(hdr, system=True):
-    p = subprocess.Popen(['clang++',
+    p = subprocess.Popen([os.environ.get('CXX', 'clang++'),
                           '-x',
                           'c++',
                           '-std=c++26',
