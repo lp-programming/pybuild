@@ -53,8 +53,8 @@ def find_library(name, alt, *extra, pkgconfig=True, force_abi=ABIS.libcxx, mode=
     p = subprocess.run(['ld', '-shared', '-o', '/dev/null', *args], stdout=subprocess.PIPE)
     if p.returncode:
         print(name, "not found")
-        libs[name] = False
-        return False
+        libs[name] = []
+        return []
     libs[name] = args
     if force_abi:
         so_a_name = [i for i in args if i.endswith('.so') or i.endswith('.a') or i.startswith('-l')]
@@ -66,13 +66,13 @@ def find_library(name, alt, *extra, pkgconfig=True, force_abi=ABIS.libcxx, mode=
                 case ABIS.libstdcpp:
                     if force_abi in (ABIS.libcxx, ABIS.C):
                         print(colorama.Fore.YELLOW, "Found", name, "but it is compiled with libstdcpp++ and you requested", force_abi, "only", colorama.Style.RESET_ALL)
-                        libs[name] = False
-                        return False
+                        libs[name] = []
+                        return []
                 case ABIS.libcxx:
                     if force_abi in (ABIS.libstdcpp, ABIS.C):
                         print(colorama.Fore.YELLOW, "Found", name, "but it is compiled with libc++ and you requested", force_abi, "only", colorama.Style.RESET_ALL)
-                        libs[name] = False
-                        return False
+                        libs[name] = []
+                        return []
     return args
 
 
