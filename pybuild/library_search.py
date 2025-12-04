@@ -50,11 +50,11 @@ def find_library(name, alt, *extra, pkgconfig=True, force_abi=ABIS.libcxx, mode=
             args = [*p.stdout.decode('utf-8').split(), *extra]
     else:
         args = list(alt)
-    p = subprocess.run(['ld', '-shared', '-o', '/dev/null', *args], stdout=subprocess.PIPE)
-    if p.returncode:
-        print(name, "not found")
-        libs[name] = []
-        return []
+        p = subprocess.run(['ld', '-shared', '-o', '/dev/null', *args], stdout=subprocess.PIPE)
+        if p.returncode:
+            print(name, "not found")
+            libs[name] = []
+            return []
     libs[name] = args
     if force_abi:
         so_a_name = [i for i in args if i.endswith('.so') or i.endswith('.a') or i.startswith('-l')]
