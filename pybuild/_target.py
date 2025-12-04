@@ -1,5 +1,6 @@
 import pathlib
 import os
+from collections import defaultdict
 try:
     import colorama
 except:
@@ -26,6 +27,10 @@ class func:
     def __init__(self, f):
         self.func = f
 
+class link:
+    def __init__(self, *args):
+        self.args = args
+
 class target(dict):
     common_args = []
     modes = dict(
@@ -36,6 +41,8 @@ class target(dict):
         "--precompile",
         "-c"
     ]
+    linker_args = defaultdict(list)
+    linker = defaultdict(lambda: (lambda *x, mode: x))
 
     build = pathlib.Path("build")
     prefix = pathlib.Path("/usr/local/")
@@ -63,6 +70,9 @@ class target(dict):
     @property
     def requirements(self):
         return self.get("requirements", [])
+    @property
+    def optionals(self):
+        return self.get("optionals", [])
     @property
     def virtual(self):
         return self.get("virtual", False)
@@ -95,21 +105,27 @@ class target(dict):
             yield "true"
             return
         for i in self.common_args:
-            yield from self.expand(i)
+            yield from self.expand(i, mode)
         for i in self.modes[mode]:
-            yield from self.expand(i)
+            yield from self.expand(i, mode)
         for i in self.get("args"):
-            yield from self.expand(i)
+            yield from self.expand(i, mode)
     @property
     def cmd(self):
         for i in self.get("cmd", []):
-            yield from self.expand(i)
-    def expand(self, i):
-        if isinstance(i, glob):
+            yield from self.expand(i, mode="cmd")
+    def expand(self, i, mode="debug"):
+        if isinstance(i, link):
+            args = []
+            for a in i.args:
+                args.extend(self.expand(a, mode))
+            for l in self.linker[mode](*args):
+                yield from self.expand(l, mode)
+        elif isinstance(i, glob):
             for p in pathlib.Path(i.path).glob(i.glob):
                 yield str(p)
         elif isinstance(i, func):
-            for f in i.func():
+            for f in i.func(mode=mode):
                 if not isinstance(f, str):
                     raise RuntimeError("Tried to get args from a faulty requirement function")
                 yield f
@@ -200,7 +216,7 @@ class cppm(target):
             yield str(self.pcm['out'])
         yield from self.get_dep_args(linking)
         
-    def get_dep_args(self, linking=False):
+    def get_dep_args(self, linking=False, mode="debug"):
         deps = set()
         for d in self.pcm.deps:
             if d in cppms:
@@ -227,7 +243,7 @@ class cpp(target):
         self['source'] = [str(pth)]
         self['args'] = self.get('args', []) + ['-o', str(self.out), str(pth), func(self.get_deps)]
 
-    def get_deps(self):
+    def get_deps(self, mode="debug"):
         deps = set()
         for d in self.deps:
             if d in cppms:
@@ -276,7 +292,9 @@ def check(hdr, system=True):
         right = '"'
     p.stdin.write(f'import {left}{hdr}{right};\n'.encode('utf-8'))
     p.stdin.close()
+    return p
 
+def wait_for_p(p):
     p.wait()
     
     if p.poll():
@@ -284,21 +302,31 @@ def check(hdr, system=True):
         if '(aka ' in err:
             return err.split('(aka ', 1)[1].split(') cannot', 1)[0]
 
+
 def encode(name):
     return name.replace("/", "_").replace('.', "_")
         
 def create_module_file(system = True):
     lines = target.module_lines[:]
-    hdrs = system_headers if system else local_headers
-    for f in sorted(hdrs):
-        print(f"checking {f}");
-        p = check(f)
-        if p:
-            p = p.replace("'", '"')
-            lines.append(f"module {encode(f)} {{")
-            lines.append(f"    header {p}")
-            lines.append(f"    export *")
-            lines.append(f"}}")
+    hdrs = list(sorted(system_headers if system else local_headers))
+    print("checking", len(hdrs), "headers")
+    waiting = []
+    while hdrs:
+        for i in range(os.cpu_count()):
+            if hdrs:
+                f = hdrs.pop()
+                waiting.append((f, check(f)))
+            else:
+                break
+        for f, w in waiting:
+            p = wait_for_p(w)
+            if p:
+                p = p.replace("'", '"')
+                lines.append(f"module {encode(f)} {{")
+                lines.append(f"    header {p}")
+                lines.append(f"    export *")
+                lines.append(f"}}")
+     
     return str.join('\n', lines)
             
         
