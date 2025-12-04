@@ -42,7 +42,7 @@ class target(dict):
         "-c"
     ]
     linker_args = defaultdict(list)
-    linker = defaultdict(lambda: (lambda *x, mode: x))
+    linker = defaultdict(lambda: (lambda *x: x))
 
     build = pathlib.Path("build")
     prefix = pathlib.Path("/usr/local/")
