@@ -8,6 +8,7 @@ import time
 import enum
 import argparse
 import signal
+import itertools
 verbose = False
 stop = False
 def SignalStop(num, frame):
@@ -251,9 +252,9 @@ class Target:
             print("prebuild:", self)
         if su := getattr(self.__target, "setup", None):
             su()
-        
+
         for r in self.__target.requirements:
-            if not r():
+            if not r(mode=mode):
                 print("Not building", self, "due to missing dep")
                 self.state = State.missing
                 return self
@@ -262,7 +263,10 @@ class Target:
         else:
             rebuild = status.get(self.name, None) != self.sha
         self.pending = []
-        for d in self.__target.deps:
+        optionals = []
+        for r in self.__target.optionals:
+            optionals.extend(r(mode=mode))
+        for d in itertools.chain(optionals, self.__target.deps):
             dep = Target(d)
             dep.prebuild(mode)
             if dep.state is not State.skipped:
