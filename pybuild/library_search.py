@@ -176,7 +176,7 @@ class Library(pkg):
 
     def guess_license(self):
         if self.path is None:
-            self.license = "N/A"
+            self.license = "(unused)"
             return
         with open(self.path, "rb") as f:
             with mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as mm:
