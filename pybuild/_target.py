@@ -14,6 +14,9 @@ except:
             RESET_ALL = '\x1b[0m'
 import subprocess
 
+CXX = os.environ.get('CXX', 'clang++')
+LD = os.environ.get('LD', 'ld')
+
 class glob:
     def __init__(self, p, g):
         self.path = p
@@ -27,9 +30,13 @@ class func:
     def __init__(self, f):
         self.func = f
 
-class link:
-    def __init__(self, *args):
-        self.args = args
+class pkg:
+    def getCFlags(self, mode="debug"):
+        return []
+    def getLDFlags(self, mode="debug"):
+        return []
+    def validate(self, mode):
+        return True
 
 class target(dict):
     common_args = []
@@ -115,12 +122,11 @@ class target(dict):
         for i in self.get("cmd", []):
             yield from self.expand(i, mode="cmd")
     def expand(self, i, mode="debug"):
-        if isinstance(i, link):
-            args = []
-            for a in i.args:
-                args.extend(self.expand(a, mode))
-            for l in self.linker[mode](*args):
-                yield from self.expand(l, mode)
+        if isinstance(i, pkg):
+            for a in i.getCFlags(mode):
+                yield from self.expand(a, mode)
+            for a in i.getLDFlags(mode):
+                yield from self.expand(a, mode)
         elif isinstance(i, glob):
             for p in pathlib.Path(i.path).glob(i.glob):
                 yield str(p)
@@ -270,7 +276,7 @@ def find_cppms(*pths: [str | pathlib.Path]) -> None:
 
 
 def check(hdr, system=True):
-    p = subprocess.Popen([os.environ.get('CXX', 'clang++'),
+    p = subprocess.Popen([CXX,
                           '-x',
                           'c++',
                           '-std=c++26',
