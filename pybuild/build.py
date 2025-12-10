@@ -9,6 +9,7 @@ import enum
 import argparse
 import signal
 import itertools
+import shlex
 verbose = False
 stop = False
 def SignalStop(num, frame):
@@ -323,6 +324,7 @@ def main(argv = sys.argv):
     parser.add_argument("-p", "--print", action="store_true", help="enable printing")
     parser.add_argument("-q", action="store_true", dest="quit", help="quit without building")
     parser.add_argument("--jobserver-auth", help=argparse.SUPPRESS)
+    parser.add_argument("--use", help="set gentoo-style USE flags", default="")
 
     args, rest = parser.parse_known_intermixed_args(argv[1:])
     verbose = args.verbose
@@ -340,6 +342,8 @@ def main(argv = sys.argv):
         target.build = args.build
     
     target.project = pathlib.Path(args.project)
+
+    target.use_flags.set((*shlex.split(os.environ.get('USE', '')), *shlex.split(args.use)))
 
     sys.path.insert(0, project)
     from targets import targets

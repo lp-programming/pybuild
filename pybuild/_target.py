@@ -38,12 +38,32 @@ class pkg:
     def validate(self, mode):
         return True
 
+class UseFlags:
+    flags = {}
+    default = 0
+    def set(self, flags):
+        for f in flags:
+            if f.startswith('-'):
+                self.flags[f[1:]] = -1
+            elif f.startswith('+'):
+                self.flags[f[1:]] = 0
+            else:
+                self.flags[f] = 1
+    def __getitem__(self, key):
+        if key.startswith("+"):
+            v = self.flags.get(key, self.default)
+            if v < 0:
+                raise RuntimeError(f"Cannot force-enable {key}: disabled by -use")
+            return v
+        return self.flags.get(key, self.default)
+
 class target(dict):
     common_args = []
     modes = dict(
         debug = [],
         release = []
     )
+    use_flags = UseFlags()
     precompile_args = [
         "--precompile",
         "-c"
